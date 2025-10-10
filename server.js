@@ -26,7 +26,8 @@ app.use(cors({
     'http://localhost:5174',
     'http://localhost:3000',
     'http://localhost:5003',
-    'https://shreegraphicsdesign-frontend.vercel.app' // Your deployed frontend
+    'https://shreegraphicsdesign-frontend.vercel.app', // Your deployed frontend
+    'https://shreegraphicsdesign.com',
   ],
   credentials: true
 }));
