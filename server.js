@@ -28,6 +28,7 @@ app.use(cors({
     'http://localhost:5003',
     'https://shreegraphicsdesign-frontend.vercel.app', // Your deployed frontend
     'https://shreegraphicsdesign.com',
+    'https://www.shreegraphicsdesign.com', // include www variant
   ],
   credentials: true
 }));
