@@ -172,7 +172,7 @@ const seed200Products = async () => {
       'apparels': {
         'cap': 20,
         'jackets': 15,
-        'sweatshirt': 15,
+        'Shirt': 15,
         'denim-shirt': 10,
         'windcheaters': 10
       },
@@ -280,7 +280,7 @@ function getImageForCategory(category, subcategory) {
     'apparels': {
       'cap': 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=500',
       'jackets': 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=500',
-      'sweatshirt': 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500',
+      'Shirt': 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500',
       'denim-shirt': 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500',
       'windcheaters': 'https://images.unsplash.com/photo-1551698618-1dfe5d97d256?w=500'
     },

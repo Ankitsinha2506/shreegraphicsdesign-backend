@@ -34,7 +34,7 @@ const productSchema = new mongoose.Schema({
     enum: {
       values: [
         // Apparels
-        'cap', 'jackets', 'sweatshirt', 'denim-shirt', 'windcheaters',
+        'cap', 'jackets', 'Shirt', 'denim-shirt', 'windcheaters',
         // Travels
         'hand-bag', 'strolley-bags', 'travel-bags', 'back-packs', 'laptop-bags',
         // Leather

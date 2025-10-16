@@ -78,7 +78,7 @@ const clientSchema = new mongoose.Schema({
     type: String,
     enum: [
       'logo-design', 'business-card', 'brochure', 'banner', 'poster', 'flyer', 'website-design',
-      'cap', 'jackets', 'sweatshirt', 'denim-shirt', 'windcheaters', 'school-uniforms',
+      'cap', 'jackets', 'Shirt', 'denim-shirt', 'windcheaters', 'school-uniforms',
       'hand-bag', 'strolley-bags', 'travel-bags', 'back-packs', 'laptop-bags', 'office-bags', 'wallets',
       'corporate', 'embroidery', 'other'
     ]

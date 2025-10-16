@@ -256,10 +256,10 @@ const products = [
     tags: ["varsity", "letterman", "school", "sports", "classic"]
   },
 
-  // Sweatshirt Category
+  // Shirt Category
   {
     name: "Pullover Hoodie Custom",
-    category: "sweatshirt",
+    category: "Shirt",
     description: "Comfortable pullover hoodie with kangaroo pocket and adjustable drawstring. Perfect for casual wear, team merchandise, and promotional events. Premium cotton blend for durability.",
     price: {
       base: 799,
@@ -289,8 +289,8 @@ const products = [
     tags: ["hoodie", "pullover", "casual", "comfortable", "cotton"]
   },
   {
-    name: "Zip-Up Hoodie Sweatshirt",
-    category: "sweatshirt",
+    name: "Zip-Up Hoodie Shirt",
+    category: "Shirt",
     description: "Versatile zip-up hoodie with full-length zipper and side pockets. Ideal for layering and corporate casual wear. Excellent surface for large logo applications.",
     price: {
       base: 899,
@@ -305,7 +305,7 @@ const products = [
     images: [
       {
         url: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500",
-        alt: "Zip-Up Hoodie Sweatshirt"
+        alt: "Zip-Up Hoodie Shirt"
       },
       {
         url: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",
@@ -320,9 +320,9 @@ const products = [
     tags: ["zip-up", "hoodie", "versatile", "layering", "corporate"]
   },
   {
-    name: "Crewneck Sweatshirt",
-    category: "sweatshirt",
-    description: "Classic crewneck sweatshirt with ribbed collar and cuffs. Perfect for screen printing and embroidery. Comfortable fit suitable for all-day wear and promotional events.",
+    name: "Crewneck Shirt",
+    category: "Shirt",
+    description: "Classic crewneck Shirt with ribbed collar and cuffs. Perfect for screen printing and embroidery. Comfortable fit suitable for all-day wear and promotional events.",
     price: {
       base: 699,
       premium: 999,
@@ -336,7 +336,7 @@ const products = [
     images: [
       {
         url: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500",
-        alt: "Crewneck Sweatshirt"
+        alt: "Crewneck Shirt"
       },
       {
         url: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",
@@ -351,9 +351,9 @@ const products = [
     tags: ["crewneck", "classic", "comfortable", "printing", "embroidery"]
   },
   {
-    name: "Oversized Sweatshirt",
-    category: "sweatshirt",
-    description: "Trendy oversized sweatshirt with dropped shoulders and relaxed fit. Perfect for streetwear brands and fashion-forward companies. Modern silhouette with vintage comfort.",
+    name: "Oversized Shirt",
+    category: "Shirt",
+    description: "Trendy oversized Shirt with dropped shoulders and relaxed fit. Perfect for streetwear brands and fashion-forward companies. Modern silhouette with vintage comfort.",
     price: {
       base: 899,
       premium: 1299,
@@ -367,11 +367,11 @@ const products = [
     images: [
       {
         url: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",
-        alt: "Oversized Sweatshirt"
+        alt: "Oversized Shirt"
       },
       {
         url: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500",
-        alt: "Oversized Sweatshirt - Styled"
+        alt: "Oversized Shirt - Styled"
       }
     ],
     features: {
@@ -382,7 +382,7 @@ const products = [
     tags: ["oversized", "trendy", "streetwear", "fashion", "relaxed"]
   },
 
-  // Denim Shirt Category
+  // T-Shirt Category
   {
     name: "Classic Denim Work Shirt",
     category: "denim-shirt",
@@ -404,7 +404,7 @@ const products = [
       },
       {
         url: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",
-        alt: "Denim Shirt - Pocket Detail"
+        alt: "T-Shirt - Pocket Detail"
       }
     ],
     features: {
@@ -446,9 +446,9 @@ const products = [
     tags: ["chambray", "casual", "lightweight", "business", "modern"]
   },
   {
-    name: "Distressed Denim Shirt",
+    name: "Distressed T-Shirt",
     category: "denim-shirt",
-    description: "Trendy distressed denim shirt with vintage appeal and contemporary styling. Perfect for fashion brands, music industry, and creative companies seeking edgy promotional wear.",
+    description: "Trendy distressed T-Shirt with vintage appeal and contemporary styling. Perfect for fashion brands, music industry, and creative companies seeking edgy promotional wear.",
     price: {
       base: 1399,
       premium: 1899,
@@ -462,7 +462,7 @@ const products = [
     images: [
       {
         url: "https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500",
-        alt: "Distressed Denim Shirt"
+        alt: "Distressed T-Shirt"
       },
       {
         url: "https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500",

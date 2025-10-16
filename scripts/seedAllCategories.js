@@ -351,39 +351,39 @@ const categories = {
       revisions: '4'
     }
   ],
-  'sweatshirt': [
+  'Shirt': [
     {
-      name: 'Custom Printed Sweatshirts',
-      description: 'Comfortable sweatshirts with custom prints and designs.',
+      name: 'Custom Printed Shirts',
+      description: 'Comfortable Shirts with custom prints and designs.',
       price: { base: 899, premium: 1399, enterprise: 2099 },
-      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Custom Sweatshirt' }],
+      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Custom Shirt' }],
       features: ['Custom Prints', 'Soft Material', 'Multiple Colors'],
       deliveryTime: '7-10 days',
       revisions: '3'
     },
     {
-      name: 'Hooded Sweatshirts',
-      description: 'Cozy hooded sweatshirts with custom embroidery and prints.',
+      name: 'Hooded Shirts',
+      description: 'Cozy hooded Shirts with custom embroidery and prints.',
       price: { base: 1199, premium: 1799, enterprise: 2699 },
-      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Hooded Sweatshirt' }],
+      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Hooded Shirt' }],
       features: ['Hood Design', 'Kangaroo Pocket', 'Custom Graphics'],
       deliveryTime: '8-12 days',
       revisions: '3'
     },
     {
-      name: 'Corporate Sweatshirts',
-      description: 'Professional sweatshirts for corporate teams and events.',
+      name: 'Corporate Shirts',
+      description: 'Professional Shirts for corporate teams and events.',
       price: { base: 1099, premium: 1599, enterprise: 2399 },
-      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Corporate Sweatshirt' }],
+      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Corporate Shirt' }],
       features: ['Company Logo', 'Professional Look', 'Bulk Orders'],
       deliveryTime: '7-10 days',
       revisions: '2'
     },
     {
-      name: 'Sports Sweatshirts',
-      description: 'Athletic sweatshirts for sports teams and fitness enthusiasts.',
+      name: 'Sports Shirts',
+      description: 'Athletic Shirts for sports teams and fitness enthusiasts.',
       price: { base: 1299, premium: 1899, enterprise: 2799 },
-      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Sports Sweatshirt' }],
+      images: [{ url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Sports Shirt' }],
       features: ['Moisture Wicking', 'Team Colors', 'Performance Fabric'],
       deliveryTime: '8-12 days',
       revisions: '3'
@@ -391,17 +391,17 @@ const categories = {
   ],
   'denim-shirt': [
     {
-      name: 'Custom Denim Shirts',
-      description: 'Stylish denim shirts with custom embroidery and patches.',
+      name: 'Custom T-Shirts',
+      description: 'Stylish T-Shirts with custom embroidery and patches.',
       price: { base: 1599, premium: 2399, enterprise: 3599 },
-      images: [{ url: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500', alt: 'Denim Shirt' }],
+      images: [{ url: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500', alt: 'T-Shirt' }],
       features: ['Premium Denim', 'Custom Patches', 'Vintage Wash'],
       deliveryTime: '10-14 days',
       revisions: '3'
     },
     {
-      name: 'Embroidered Denim Shirts',
-      description: 'Classic denim shirts with intricate embroidery work.',
+      name: 'Embroidered T-Shirts',
+      description: 'Classic T-Shirts with intricate embroidery work.',
       price: { base: 1899, premium: 2799, enterprise: 4199 },
       images: [{ url: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500', alt: 'Embroidered Denim' }],
       features: ['Hand Embroidery', 'Artistic Designs', 'Quality Denim'],
@@ -409,8 +409,8 @@ const categories = {
       revisions: '4'
     },
     {
-      name: 'Corporate Denim Shirts',
-      description: 'Professional denim shirts for casual corporate environments.',
+      name: 'Corporate T-Shirts',
+      description: 'Professional T-Shirts for casual corporate environments.',
       price: { base: 1799, premium: 2599, enterprise: 3899 },
       images: [{ url: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500', alt: 'Corporate Denim' }],
       features: ['Professional Cut', 'Company Branding', 'Comfortable Fit'],
@@ -418,8 +418,8 @@ const categories = {
       revisions: '3'
     },
     {
-      name: 'Designer Denim Shirts',
-      description: 'High-end designer denim shirts with unique styling.',
+      name: 'Designer T-Shirts',
+      description: 'High-end designer T-Shirts with unique styling.',
       price: { base: 2499, premium: 3699, enterprise: 5499 },
       images: [{ url: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=500', alt: 'Designer Denim' }],
       features: ['Designer Cut', 'Premium Fabric', 'Unique Details'],

@@ -82,19 +82,19 @@ const seedNewCategoryProducts = async () => {
             }
           ]
         },
-        'sweatshirt': {
+        'Shirt': {
           category: 'apparels',
-          subcategory: 'sweatshirt',
+          subcategory: 'Shirt',
           products: [
             {
-              name: 'Custom Hoodie Sweatshirt',
+              name: 'Custom Hoodie Shirt',
               description: 'Comfortable cotton blend hoodie with custom printing and embroidery options. Perfect for casual wear and team uniforms.',
               price: { base: 799, premium: 1199, enterprise: 1699 },
               images: [
-                { url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Hoodie Sweatshirt', isPrimary: true },
+                { url: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?w=500', alt: 'Hoodie Shirt', isPrimary: true },
                 { url: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=500', alt: 'Hood Detail' }
               ],
-              tags: ['hoodie', 'sweatshirt', 'cotton', 'custom', 'comfortable'],
+              tags: ['hoodie', 'Shirt', 'cotton', 'custom', 'comfortable'],
               features: {
                 base: ['Cotton blend', 'Kangaroo pocket', 'Basic printing'],
                 premium: ['Premium cotton', 'Fleece lining', 'Custom embroidery'],

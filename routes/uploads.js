@@ -14,7 +14,7 @@ cloudinary.config({
   api_secret: process.env.API_SECRET
 });
 
-// Configure multer for memory storage
+// Configure multer for local temp storage
 const storage = multer.diskStorage({
   destination: 'uploads/temp',
   filename: (req, file, cb) => {
@@ -23,19 +23,25 @@ const storage = multer.diskStorage({
   }
 });
 
+// 🟢 Reduced max file size from 10MB → 5MB for better control
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
 });
 
-// Helper: Upload a file to Cloudinary and delete temp
+// 🟢 Helper: Upload file to Cloudinary with compression + cleanup
 async function uploadToCloudinary(localPath, folder) {
   try {
     const result = await cloudinary.uploader.upload(localPath, {
       folder,
-      resource_type: "auto" // supports images & docs
+      resource_type: "image",
+      transformation: [
+        { quality: "auto:good", fetch_format: "auto" }, // 🟢 Auto compression & format
+        { width: 2000, crop: "limit" } // 🟢 Limit huge images
+      ]
     });
-    fs.unlinkSync(localPath); // Delete local temp
+
+    fs.unlinkSync(localPath); // delete temp file after upload
     return result;
   } catch (err) {
     console.error("Cloudinary upload error:", err);
@@ -78,6 +84,8 @@ router.post('/product', protect, authorize('admin'), upload.array('images', 5), 
       return res.status(400).json({ success: false, message: 'No files uploaded' });
 
     const uploads = [];
+
+    // 🟢 Each image will be auto-compressed & optimized
     for (const file of req.files) {
       const result = await uploadToCloudinary(file.path, 'products');
       uploads.push({
@@ -147,6 +155,7 @@ router.delete('/:public_id', protect, authorize('admin'), async (req, res) => {
 });
 
 module.exports = router;
+
 
 
 
