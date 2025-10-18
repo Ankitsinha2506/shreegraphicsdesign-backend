@@ -44,7 +44,7 @@ const productSchema = new mongoose.Schema({
         // Design Services
         'logo-design', 'business-card', 'brochure', 'banner', 'poster', 'flyer', 'website-design',
         // Embroidery
-        'logo-embroidery', 'text-embroidery', 'custom-patches', 'monogramming', 'applique', 'thread-work', 'beadwork', 'sequin-work', 'machine-embroidery', 'hand-embroidery',
+        'logo-embroidery', 'text-embroidery', 'custom-patches', 'monogramming', 'badge-embroidery', 'custom-embroidery', 'hand-embroidery',
         // Other
         'other'
       ],
