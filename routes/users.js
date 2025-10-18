@@ -13,19 +13,19 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    
+
     const query = {};
-    
+
     // Filter by role
     if (req.query.role) {
       query.role = req.query.role;
     }
-    
+
     // Filter by active status
     if (req.query.isActive !== undefined) {
       query.isActive = req.query.isActive === 'true';
     }
-    
+
     // Search by name or email
     if (req.query.search) {
       query.$or = [
@@ -33,15 +33,15 @@ router.get('/', protect, authorize('admin'), async (req, res) => {
         { email: { $regex: req.query.search, $options: 'i' } }
       ];
     }
-    
+
     const users = await User.find(query)
       .select('-password')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
-    
+
     const total = await User.countDocuments(query);
-    
+
     res.status(200).json({
       success: true,
       count: users.length,
@@ -71,16 +71,16 @@ router.get('/:id', protect, async (req, res) => {
         message: 'Access denied. You can only view your own profile.'
       });
     }
-    
+
     const user = await User.findById(req.params.id).select('-password');
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
-    
+
     res.status(200).json({
       success: true,
       user
@@ -130,9 +130,9 @@ router.post('/', [
         errors: errors.array()
       });
     }
-    
+
     const { name, email, password, role = 'user', phone } = req.body;
-    
+
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -141,7 +141,7 @@ router.post('/', [
         message: 'User already exists with this email'
       });
     }
-    
+
     // Create user
     const user = await User.create({
       name,
@@ -150,10 +150,10 @@ router.post('/', [
       role,
       phone
     });
-    
+
     // Remove password from response
     const userResponse = await User.findById(user._id).select('-password');
-    
+
     res.status(201).json({
       success: true,
       message: 'User created successfully',
@@ -203,9 +203,9 @@ router.put('/:id', [
         errors: errors.array()
       });
     }
-    
+
     const { name, email, role, isActive, phone, address } = req.body;
-    
+
     // Check if user exists
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -214,7 +214,7 @@ router.put('/:id', [
         message: 'User not found'
       });
     }
-    
+
     // Check if email is already taken by another user
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ email });
@@ -225,7 +225,7 @@ router.put('/:id', [
         });
       }
     }
-    
+
     // Prevent admin from deactivating themselves
     if (req.user._id.toString() === req.params.id && isActive === false) {
       return res.status(400).json({
@@ -233,7 +233,7 @@ router.put('/:id', [
         message: 'You cannot deactivate your own account'
       });
     }
-    
+
     // Update user
     const updatedUser = await User.findByIdAndUpdate(
       req.params.id,
@@ -243,7 +243,7 @@ router.put('/:id', [
         runValidators: true
       }
     ).select('-password');
-    
+
     res.status(200).json({
       success: true,
       message: 'User updated successfully',
@@ -261,41 +261,43 @@ router.put('/:id', [
 // @desc    Delete user (Admin only)
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
+const mongoose = require('mongoose');
+
+// @desc    Delete user (Admin only)
+// @route   DELETE /api/users/:id
+// @access  Private/Admin
 router.delete('/:id', protect, authorize('admin'), async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
-    
+    const userId = req.params.id;
+
+    console.log('Delete request received for user ID:', userId);
+    console.log('Admin performing delete:', req.user._id);
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, message: 'Invalid user ID' });
+    }
+
+    const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
-    
+
     // Prevent admin from deleting themselves
-    if (req.user._id.toString() === req.params.id) {
-      return res.status(400).json({
-        success: false,
-        message: 'You cannot delete your own account'
-      });
+    if (req.user._id.toString() === userId) {
+      return res.status(400).json({ success: false, message: 'You cannot delete your own account' });
     }
-    
-    // Soft delete - just deactivate the user
-    user.isActive = false;
-    await user.save();
-    
-    res.status(200).json({
-      success: true,
-      message: 'User deactivated successfully'
-    });
+
+    // Hard delete
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({ success: true, message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while deleting user'
-    });
+    res.status(500).json({ success: false, message: 'Server error while deleting user' });
   }
 });
+
 
 // @desc    Get user statistics (Admin only)
 // @route   GET /api/users/stats
@@ -308,7 +310,7 @@ router.get('/admin/stats', protect, authorize('admin'), async (req, res) => {
     const recentUsers = await User.countDocuments({
       createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
     });
-    
+
     // User registration trend (last 12 months)
     const registrationTrend = await User.aggregate([
       {
@@ -331,7 +333,7 @@ router.get('/admin/stats', protect, authorize('admin'), async (req, res) => {
         $sort: { '_id.year': 1, '_id.month': 1 }
       }
     ]);
-    
+
     res.status(200).json({
       success: true,
       stats: {
@@ -403,7 +405,7 @@ router.get('/export/csv', protect, authorize('admin'), async (req, res) => {
     const timestamp = new Date().toISOString().split('T')[0];
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="users_export_${timestamp}.csv"`);
-    
+
     res.status(200).send(csvContent);
   } catch (error) {
     console.error('Export users error:', error);
