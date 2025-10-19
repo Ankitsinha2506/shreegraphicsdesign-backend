@@ -62,6 +62,7 @@ app.use("/api/custom-logo-designs", require("./routes/customLogoDesigns"));
 app.use("/api/custom-logo-requests", require("./routes/customLogoRequests"));
 app.use("/api/custom-embroidery-requests", require("./routes/customEmbroideryRequests"));
 app.use("/api/custom-design-orders", require("./routes/customDesignOrders"));
+app.use('/api/contact', require('./routes/contact'));
 app.use("/api/uploads", require("./routes/uploads"));
 app.use("/api", require("./routes/reviewRoutes"));
 
