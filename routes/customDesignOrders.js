@@ -46,6 +46,9 @@ const upload = multer({
 // @route   POST /api/custom-design-orders
 // @desc    Create a new custom design order
 // @access  Private
+// @route   POST /api/custom-design-orders
+// @desc    Create a new custom design order
+// @access  Private
 router.post('/', auth, upload.single('designFile'), async (req, res) => {
   try {
     const {
@@ -90,8 +93,8 @@ router.post('/', auth, upload.single('designFile'), async (req, res) => {
     let parsedPlacements = [];
     if (designPlacements) {
       try {
-        parsedPlacements = typeof designPlacements === 'string' 
-          ? JSON.parse(designPlacements) 
+        parsedPlacements = typeof designPlacements === 'string'
+          ? JSON.parse(designPlacements)
           : designPlacements;
       } catch (error) {
         return res.status(400).json({
@@ -125,6 +128,16 @@ router.post('/', auth, upload.single('designFile'), async (req, res) => {
       }
     }
 
+    // Generate unique order number
+    const orderNumber = 'ORD-' + Date.now();
+
+    // Map productCategory to valid enum (update according to your schema)
+    const validCategories = ['tshirt', 'cap', 'bag', 'embroidery', 'logo-embroidery'];
+    let productCategory = product.category;
+    if (!validCategories.includes(productCategory)) {
+      productCategory = 'tshirt'; // fallback default
+    }
+
     // Calculate pricing
     const basePrice = product.price?.base || product.price || 0;
     const designCost = calculateDesignCost(designType, parsedPlacements);
@@ -137,10 +150,11 @@ router.post('/', auth, upload.single('designFile'), async (req, res) => {
 
     // Create custom design order
     const customOrder = new CustomDesignOrder({
+      orderNumber,
       customer: req.user.id,
       product: productId,
       productName: product.name,
-      productCategory: product.category,
+      productCategory,
       productSubcategory: product.subcategory,
       productOptions: productOptions ? JSON.parse(productOptions) : {},
       quantity: parseInt(quantity),
@@ -192,6 +206,7 @@ router.post('/', auth, upload.single('designFile'), async (req, res) => {
     });
   }
 });
+
 
 // @route   GET /api/custom-design-orders
 // @desc    Get all custom design orders for the authenticated user

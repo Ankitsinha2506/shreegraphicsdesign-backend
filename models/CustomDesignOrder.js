@@ -26,7 +26,7 @@ const customDesignOrderSchema = new mongoose.Schema({
   productCategory: {
     type: String,
     required: true,
-    enum: ['apparels', 'travels', 'leather', 'uniforms']
+    enum: ['apparels', 'travels', 'leather', 'uniforms', 'embroidery']
   },
   productSubcategory: {
     type: String,
@@ -253,7 +253,7 @@ const customDesignOrderSchema = new mongoose.Schema({
 
 // Indexes for better performance
 customDesignOrderSchema.index({ customer: 1, createdAt: -1 });
-customDesignOrderSchema.index({ orderNumber: 1 });
+// customDesignOrderSchema.index({ orderNumber: 1 });
 customDesignOrderSchema.index({ status: 1 });
 customDesignOrderSchema.index({ product: 1 });
 customDesignOrderSchema.index({ designType: 1 });
