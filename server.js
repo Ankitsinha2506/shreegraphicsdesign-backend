@@ -64,6 +64,7 @@ app.use("/api/custom-embroidery-requests", require("./routes/customEmbroideryReq
 app.use("/api/custom-design-orders", require("./routes/customDesignOrders"));
 app.use('/api/contact', require('./routes/contact'));
 app.use("/api/uploads", require("./routes/uploads"));
+app.use("/api/admin/analytics", require("./routes/analytics"));
 app.use("/api", require("./routes/reviewRoutes"));
 
 // ✅ 8️⃣ Health check endpoint

@@ -132,11 +132,16 @@ router.post('/', auth, upload.single('designFile'), async (req, res) => {
     const orderNumber = 'ORD-' + Date.now();
 
     // Map productCategory to valid enum (update according to your schema)
-    const validCategories = ['tshirt', 'cap', 'bag', 'embroidery', 'logo-embroidery'];
+    // Valid categories according to Mongoose schema
+    const validCategories = ['apparels', 'travels', 'leather', 'uniforms', 'embroidery'];
+
     let productCategory = product.category;
+
+    // If the product category is not in the allowed enum, fallback safely:
     if (!validCategories.includes(productCategory)) {
-      productCategory = 'tshirt'; // fallback default
+      productCategory = 'embroidery';  // safe fallback
     }
+
 
     // Calculate pricing
     const basePrice = product.price?.base || product.price || 0;
@@ -214,7 +219,7 @@ router.post('/', auth, upload.single('designFile'), async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const { page = 1, limit = 10, status } = req.query;
-    
+
     const query = { customer: req.user.id };
     if (status) {
       query.status = status;
@@ -253,11 +258,11 @@ router.get('/admin', auth, authorize('admin'), async (req, res) => {
   try {
     const { page = 1, limit = 10, status, search } = req.query;
     const skip = (page - 1) * limit;
-    
+
     // Build filter object
     const filter = {};
     if (status) filter.status = status;
-    
+
     // Search filter
     if (search) {
       filter.$or = [
@@ -266,7 +271,7 @@ router.get('/admin', auth, authorize('admin'), async (req, res) => {
         { specialInstructions: { $regex: search, $options: 'i' } }
       ];
     }
-    
+
     const orders = await CustomDesignOrder.find(filter)
       .populate('customer', 'name email phone')
       .populate('product', 'name category subcategory images')
@@ -274,14 +279,14 @@ router.get('/admin', auth, authorize('admin'), async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit))
       .lean();
-    
+
     const total = await CustomDesignOrder.countDocuments(filter);
-    
+
     // Calculate total revenue
     const totalRevenue = orders.reduce((sum, order) => {
       return sum + (order.pricing?.totalPrice || 0);
     }, 0);
-    
+
     res.json({
       success: true,
       count: orders.length,
@@ -291,7 +296,7 @@ router.get('/admin', auth, authorize('admin'), async (req, res) => {
       currentPage: parseInt(page),
       orders
     });
-    
+
   } catch (error) {
     console.error('Error fetching admin custom design orders:', error);
     res.status(500).json({
@@ -387,7 +392,7 @@ router.put('/:id/cancel', auth, async (req, res) => {
 router.post('/:id/message', auth, async (req, res) => {
   try {
     const { message } = req.body;
-    
+
     if (!message) {
       return res.status(400).json({
         success: false,
@@ -439,16 +444,16 @@ function calculateDesignCost(designType, placements) {
     'text': 25,
     'custom-design': 150
   };
-  
+
   const baseCost = baseCosts[designType] || 50;
   const placementMultiplier = placements.length > 1 ? 1.5 : 1;
-  
+
   return baseCost * placementMultiplier;
 }
 
 function calculatePlacementCost(placements) {
   if (!placements || placements.length === 0) return 0;
-  
+
   // First placement is free, additional placements cost extra
   const additionalPlacements = Math.max(0, placements.length - 1);
   return additionalPlacements * 30; // ₹30 per additional placement
@@ -461,9 +466,9 @@ function calculateDeliveryTime(deliveryType, designType) {
     'text': 2,
     'custom-design': 5
   };
-  
+
   const baseTime = baseDays[designType] || 3;
-  
+
   switch (deliveryType) {
     case 'rush':
       return Math.max(1, Math.floor(baseTime / 2));
