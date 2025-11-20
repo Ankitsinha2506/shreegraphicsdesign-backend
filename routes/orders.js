@@ -14,19 +14,19 @@ router.get('/', protect, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    
+
     let query = {};
-    
+
     // Regular users can only see their own orders
     if (req.user.role !== 'admin') {
       query.customer = req.user._id;
     }
-    
+
     // Filter by status
     if (req.query.status) {
       query.status = req.query.status;
     }
-    
+
     // Filter by date range
     if (req.query.startDate || req.query.endDate) {
       query.createdAt = {};
@@ -37,21 +37,21 @@ router.get('/', protect, async (req, res) => {
         query.createdAt.$lte = new Date(req.query.endDate);
       }
     }
-    
+
     // Search by order number
     if (req.query.search) {
       query.orderNumber = { $regex: req.query.search, $options: 'i' };
     }
-    
+
     const orders = await Order.find(query)
       .populate('customer', 'name email')
       .populate('items.product', 'name category images')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
-    
+
     const total = await Order.countDocuments(query);
-    
+
     res.status(200).json({
       success: true,
       count: orders.length,
@@ -78,14 +78,14 @@ router.get('/:id', protect, async (req, res) => {
       .populate('customer', 'name email phone')
       .populate('items.product', 'name category images createdBy')
       .populate('communication.sender', 'name role');
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     // Check if user can access this order
     if (req.user.role !== 'admin' && order.customer._id.toString() !== req.user._id.toString()) {
       return res.status(403).json({
@@ -93,7 +93,7 @@ router.get('/:id', protect, async (req, res) => {
         message: 'Access denied. You can only view your own orders.'
       });
     }
-    
+
     res.status(200).json({
       success: true,
       order
@@ -110,121 +110,111 @@ router.get('/:id', protect, async (req, res) => {
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
-router.post('/', [
-  protect,
-  body('items')
-    .isArray({ min: 1 })
-    .withMessage('Order must contain at least one item'),
-  body('items.*.product')
-    .custom((value) => {
-      // Allow mock product IDs for testing (simple numbers)
-      if (/^\d+$/.test(value)) {
-        return true;
-      }
-      // Otherwise require valid MongoDB ObjectId
-      return /^[0-9a-fA-F]{24}$/.test(value);
-    })
-    .withMessage('Invalid product ID'),
-  body('items.*.tier')
-    .isIn(['base', 'premium', 'enterprise'])
-    .withMessage('Invalid pricing tier'),
-  body('items.*.quantity')
-    .isInt({ min: 1 })
-    .withMessage('Quantity must be at least 1'),
-  body('shippingAddress.fullName')
-    .trim()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('Full name is required'),
-  body('shippingAddress.email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Valid email is required'),
-  body('shippingAddress.phone')
-    .isMobilePhone()
-    .withMessage('Valid phone number is required')
-], async (req, res) => {
+router.post("/", protect, async (req, res) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
+    let body = req.body;
+
+    // If FormData (multipart) is sent, extract JSON
+    if (typeof req.body.data === "string") {
+      body = JSON.parse(req.body.data);
+    }
+
+    const {
+      items,
+      shippingAddress,
+      paymentMethod,
+      manualTransactionId,
+      paymentStatus,
+      paymentScreenshot
+    } = body;
+
+    // -------------------------
+    // VALIDATION
+    // -------------------------
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: errors.array()
+        message: "Order must contain at least one item",
       });
     }
-    
-    const { items, shippingAddress, specialInstructions } = req.body;
-    
-    // Validate products and calculate pricing
-    let totalAmount = 0;
+
+    if (!shippingAddress.fullName) {
+      return res.status(400).json({
+        success: false,
+        message: "Full name is required",
+      });
+    }
+
+    if (!shippingAddress.email) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid email is required",
+      });
+    }
+
+    if (!shippingAddress.phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid phone number is required",
+      });
+    }
+
+    // -------------------------
+    // BUILD ORDER ITEMS
+    // -------------------------
+    let subtotal = 0;
     const orderItems = [];
-    
+
     for (const item of items) {
-      let product;
-      
-      // Handle mock product IDs for testing
-      if (/^\d+$/.test(item.product)) {
-        // Create mock product for testing
-        product = {
-          _id: item.product,
-          name: `Mock Product ${item.product}`,
-          price: {
-            base: 100,
-            premium: 200,
-            enterprise: 300
-          },
-          isActive: true
-        };
-      } else {
-        product = await Product.findById(item.product);
-      }
-      
-      if (!product || !product.isActive) {
+      const product = await Product.findById(item.product);
+
+      if (!product) {
         return res.status(400).json({
           success: false,
-          message: `Product ${item.product} not found or inactive`
+          message: `Product ${item.product} not found`,
         });
       }
-      
-      const tierPrice = product.price[item.tier];
+
+      const tier = item.tier || item.packageType || "base";
+      const tierPrice = product.price[tier];
+
       if (!tierPrice) {
         return res.status(400).json({
           success: false,
-          message: `Pricing tier ${item.tier} not available for product ${product.name}`
+          message: `Pricing tier '${tier}' not found`,
         });
       }
-      
-      const itemTotal = tierPrice * item.quantity;
-      totalAmount += itemTotal;
-      
+
+      const qty = item.quantity || 1;
+      subtotal += tierPrice * qty;
+
       orderItems.push({
         product: product._id,
-        packageType: item.tier,
-        quantity: item.quantity,
+        packageType: tier,
+        quantity: qty,
         price: tierPrice,
-        customizations: Object.entries(item.customization || {}).map(([key, value]) => ({
-          optionName: key,
-          selectedValue: value,
-          additionalCost: 0
-        })),
-        requirements: item.specialInstructions || ''
+        customizations: Object.entries(item.customization || {}).map(
+          ([key, value]) => ({
+            optionName: key,
+            selectedValue: value,
+          })
+        ),
       });
     }
-    
-    // Create order
-    console.log('Creating order with data:', {
-      customer: req.user._id,
-      paymentMethod: req.body.paymentMethod
-    });
-    
+
+    const tax = subtotal * 0.1;
+    const total = subtotal + tax;
+
+    // -------------------------
+    // CREATE ORDER DOCUMENT
+    // -------------------------
     const order = new Order({
       customer: req.user._id,
       items: orderItems,
       pricing: {
-        subtotal: totalAmount,
-        tax: totalAmount * 0.1, // 10% tax
-        total: totalAmount * 1.1
+        subtotal,
+        tax,
+        total,
       },
       shippingAddress: {
         fullName: shippingAddress.fullName,
@@ -234,36 +224,37 @@ router.post('/', [
         city: shippingAddress.city,
         state: shippingAddress.state,
         zipCode: shippingAddress.pincode,
-        country: shippingAddress.country || 'India'
+        country: shippingAddress.country || "India",
       },
       paymentInfo: {
-        method: req.body.paymentMethod || 'cash-on-delivery'
+        method: paymentMethod,
+        manualTransactionId: manualTransactionId || null,
+        paymentScreenshot: paymentScreenshot || null,
+        paymentStatus: paymentStatus || "pending",
       },
-      status: 'pending'
+      status: "pending",
     });
-    
-    console.log('Order before save:', order.toObject());
+
     await order.save();
-    console.log('Order after save:', order.toObject());
-    
-    // Populate the created order
+
     const populatedOrder = await Order.findById(order._id)
-      .populate('customer', 'name email')
-      .populate('items.product', 'name category images');
-    
+      .populate("customer", "name email")
+      .populate("items.product", "name images category");
+
     res.status(201).json({
       success: true,
-      message: 'Order created successfully',
-      order: populatedOrder
+      message: "Order created successfully",
+      order: populatedOrder,
     });
   } catch (error) {
-    console.error('Create order error:', error);
+    console.error("Create order error:", error);
     res.status(500).json({
       success: false,
-      message: 'Server error while creating order'
+      message: "Server error while creating order",
     });
   }
 });
+
 
 // @desc    Update order status
 // @route   PUT /api/orders/:id/status
@@ -290,9 +281,9 @@ router.put('/:id/status', [
         errors: errors.array()
       });
     }
-    
+
     const { status, message } = req.body;
-    
+
     // Try to find by ObjectId first, then by orderNumber
     let order;
     try {
@@ -301,23 +292,23 @@ router.put('/:id/status', [
       // If not a valid ObjectId, try finding by orderNumber
       order = await Order.findOne({ orderNumber: req.params.id });
     }
-    
+
     if (!order) {
       // Try finding by orderNumber if not found by ID
       order = await Order.findOne({ orderNumber: req.params.id });
     }
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     // Update status
     const oldStatus = order.status;
     order.status = status;
-    
+
     // Add communication log entry
     order.communication.push({
       sender: req.user._id,
@@ -325,18 +316,18 @@ router.put('/:id/status', [
       type: 'message',
       createdAt: new Date()
     });
-    
+
     // Set completion date if completed
     if (status === 'completed' && !order.actualDeliveryDate) {
       order.actualDeliveryDate = new Date();
     }
-    
+
     await order.save();
-    
+
     const updatedOrder = await Order.findById(order._id)
       .populate('customer', 'name email')
       .populate('items.product', 'name category');
-    
+
     res.status(200).json({
       success: true,
       message: 'Order status updated successfully',
@@ -375,18 +366,18 @@ router.post('/:id/communication', [
         errors: errors.array()
       });
     }
-    
+
     const { message, type = 'message' } = req.body;
-    
+
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     // Check if user can access this order
     if (req.user.role !== 'admin' && order.customer.toString() !== req.user._id.toString()) {
       return res.status(403).json({
@@ -394,7 +385,7 @@ router.post('/:id/communication', [
         message: 'Access denied. You can only communicate on your own orders.'
       });
     }
-    
+
     // Add communication
     order.communication.push({
       sender: req.user._id,
@@ -402,9 +393,9 @@ router.post('/:id/communication', [
       type,
       createdAt: new Date()
     });
-    
+
     await order.save();
-    
+
     res.status(201).json({
       success: true,
       message: 'Communication added successfully'
@@ -424,14 +415,14 @@ router.post('/:id/communication', [
 router.put('/:id/cancel', protect, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
-    
+
     if (!order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
-    
+
     // Check if user can cancel this order
     if (req.user.role !== 'admin' && order.customer.toString() !== req.user._id.toString()) {
       return res.status(403).json({
@@ -439,7 +430,7 @@ router.put('/:id/cancel', protect, async (req, res) => {
         message: 'Access denied. You can only cancel your own orders.'
       });
     }
-    
+
     // Check if order can be cancelled
     if (['completed', 'cancelled'].includes(order.status)) {
       return res.status(400).json({
@@ -447,7 +438,7 @@ router.put('/:id/cancel', protect, async (req, res) => {
         message: 'Order cannot be cancelled in its current status'
       });
     }
-    
+
     // Cancel order
     order.status = 'cancelled';
     order.communication.push({
@@ -456,9 +447,9 @@ router.put('/:id/cancel', protect, async (req, res) => {
       type: 'message',
       createdAt: new Date()
     });
-    
+
     await order.save();
-    
+
     res.status(200).json({
       success: true,
       message: 'Order cancelled successfully'
@@ -481,19 +472,19 @@ router.get('/admin/stats', protect, authorize('admin'), async (req, res) => {
     const pendingOrders = await Order.countDocuments({ status: 'pending' });
     const completedOrders = await Order.countDocuments({ status: 'completed' });
     const cancelledOrders = await Order.countDocuments({ status: 'cancelled' });
-    
+
     // Revenue calculation
     const revenueData = await Order.aggregate([
       { $match: { status: 'completed' } },
       { $group: { _id: null, totalRevenue: { $sum: '$pricing.total' } } }
     ]);
-    
+
     // Orders by status
     const ordersByStatus = await Order.aggregate([
       { $group: { _id: '$status', count: { $sum: 1 } } },
       { $sort: { count: -1 } }
     ]);
-    
+
     // Monthly order trend (last 12 months)
     const orderTrend = await Order.aggregate([
       {
@@ -517,7 +508,7 @@ router.get('/admin/stats', protect, authorize('admin'), async (req, res) => {
         $sort: { '_id.year': 1, '_id.month': 1 }
       }
     ]);
-    
+
     res.status(200).json({
       success: true,
       stats: {
@@ -566,12 +557,12 @@ router.get('/export/csv', protect, authorize('admin'), async (req, res) => {
 
     // Create CSV rows
     const csvRows = orders.map(order => {
-      const products = order.items.map(item => 
+      const products = order.items.map(item =>
         `${item.product?.name || 'Unknown'} (${item.tier}, Qty: ${item.quantity})`
       ).join('; ');
-      
-      const shippingAddress = order.shippingAddress ? 
-        `${order.shippingAddress.fullName}, ${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zipCode}` : 
+
+      const shippingAddress = order.shippingAddress ?
+        `${order.shippingAddress.fullName}, ${order.shippingAddress.address}, ${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.zipCode}` :
         'N/A';
 
       return [
@@ -598,7 +589,7 @@ router.get('/export/csv', protect, authorize('admin'), async (req, res) => {
     const timestamp = new Date().toISOString().split('T')[0];
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="orders_export_${timestamp}.csv"`);
-    
+
     res.status(200).send(csvContent);
   } catch (error) {
     console.error('Export orders error:', error);

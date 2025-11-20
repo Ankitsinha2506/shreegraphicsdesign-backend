@@ -1,160 +1,73 @@
 const express = require('express');
 const multer = require('multer');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
-const path = require('path');
+const Order = require('../models/Order'); // <-- Your Order model
 
 const router = express.Router();
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUD_NAME,
-  api_key: process.env.API_KEY,
-  api_secret: process.env.API_SECRET
-});
+// Multer to handle screenshot upload
+const upload = multer({ dest: "uploads/temp" });
 
-// Configure multer for local temp storage
-const storage = multer.diskStorage({
-  destination: 'uploads/temp',
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
-  }
-});
-
-// 🟢 Reduced max file size from 10MB → 5MB for better control
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-});
-
-// 🟢 Helper: Upload file to Cloudinary with compression + cleanup
-async function uploadToCloudinary(localPath, folder) {
+// CREATE ORDER WITH SCREENSHOT
+router.post("/", protect, upload.single("screenshot"), async (req, res) => {
   try {
-    const result = await cloudinary.uploader.upload(localPath, {
-      folder,
-      resource_type: "image",
-      transformation: [
-        { quality: "auto:good", fetch_format: "auto" }, // 🟢 Auto compression & format
-        { width: 2000, crop: "limit" } // 🟢 Limit huge images
-      ]
-    });
+    // Parse JSON
+    const orderData = JSON.parse(req.body.data);
 
-    fs.unlinkSync(localPath); // delete temp file after upload
-    return result;
-  } catch (err) {
-    console.error("Cloudinary upload error:", err);
-    throw new Error("Failed to upload to Cloudinary");
-  }
-}
+    let screenshotUrl = null;
 
-// ============ ROUTES ============
-
-// @desc Upload avatar
-// @route POST /api/uploads/avatar
-// @access Private
-router.post('/avatar', protect, upload.single('avatar'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
-
-    const result = await uploadToCloudinary(req.file.path, 'avatars');
-
-    res.status(200).json({
-      success: true,
-      message: 'Avatar uploaded successfully',
-      file: {
-        public_id: result.public_id,
-        url: result.secure_url,
-        size: result.bytes,
-        format: result.format
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// @desc Upload product images
-// @route POST /api/uploads/product
-// @access Private/Admin
-router.post('/product', protect, authorize('admin'), upload.array('images', 5), async (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0)
-      return res.status(400).json({ success: false, message: 'No files uploaded' });
-
-    const uploads = [];
-
-    // 🟢 Each image will be auto-compressed & optimized
-    for (const file of req.files) {
-      const result = await uploadToCloudinary(file.path, 'products');
-      uploads.push({
-        public_id: result.public_id,
-        url: result.secure_url,
-        size: result.bytes,
-        format: result.format
+    // ⭐ If screenshot uploaded → upload to Cloudinary
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "payments",
+        resource_type: "image",
+        transformation: [
+          { quality: "auto:good", fetch_format: "auto" },
+          { width: 2000, crop: "limit" }
+        ]
       });
+
+      screenshotUrl = result.secure_url;
+
+      // Remove temp local file
+      fs.unlinkSync(req.file.path);
     }
 
-    res.status(200).json({
-      success: true,
-      message: `${uploads.length} product image(s) uploaded successfully`,
-      files: uploads
+    // ⭐ Create order
+    const order = await Order.create({
+      user: req.user._id,
+      items: orderData.items,
+      shippingAddress: orderData.shippingAddress,
+      paymentMethod: orderData.paymentMethod,
+      paymentStatus: orderData.paymentStatus,
+      transactionId: orderData.transactionId || null,
+      paymentDetails: {
+        upiId: orderData.paymentDetails?.upiId || null,
+        screenshot: screenshotUrl || null,  // ⭐ NEW FIELD
+      },
+      totalAmount: orderData.totalAmount,
     });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
 
-// @desc Upload order files (image or document)
-// @route POST /api/uploads/order/:orderId
-// @access Private
-router.post('/order/:orderId', protect, upload.array('files', 10), async (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0)
-      return res.status(400).json({ success: false, message: 'No files uploaded' });
-
-    const uploads = [];
-    for (const file of req.files) {
-      const result = await uploadToCloudinary(file.path, 'orders');
-      uploads.push({
-        public_id: result.public_id,
-        url: result.secure_url,
-        size: result.bytes,
-        format: result.format,
-        orderId: req.params.orderId
-      });
-    }
-
-    res.status(200).json({
+    res.status(201).json({
       success: true,
-      message: `${uploads.length} file(s) uploaded successfully`,
-      files: uploads
+      message: "Order created successfully",
+      order
     });
+
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
-
-// @desc Delete file from Cloudinary
-// @route DELETE /api/uploads/:public_id
-// @access Private/Admin
-router.delete('/:public_id', protect, authorize('admin'), async (req, res) => {
-  try {
-    const { public_id } = req.params;
-    const result = await cloudinary.uploader.destroy(public_id, { resource_type: "auto" });
-
-    if (result.result === 'not found')
-      return res.status(404).json({ success: false, message: 'File not found on Cloudinary' });
-
-    res.status(200).json({ success: true, message: 'File deleted successfully from Cloudinary' });
-  } catch (err) {
-    console.error("Delete error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("Order Create Error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Order creation failed",
+      error: err.message
+    });
   }
 });
 
 module.exports = router;
+
 
 
 

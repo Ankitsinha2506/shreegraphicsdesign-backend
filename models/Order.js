@@ -143,22 +143,49 @@ const orderSchema = new mongoose.Schema({
   paymentInfo: {
     method: {
       type: String,
-      enum: ['card', 'credit-card', 'debit-card', 'paypal', 'bank-transfer', 'upi', 'cash-on-delivery', 'cod'],
+      enum: [
+        'card',
+        'credit-card',
+        'debit-card',
+        'paypal',
+        'bank-transfer',
+        'upi',
+        'cash-on-delivery',
+        'cod'
+      ],
       required: true
     },
-    transactionId: String,
+
+    // OLD AUTO-GENERATED transaction ID
+    transactionId: {
+      type: String
+    },
+
+    // NEW: UPI Transaction ID entered after payment
+    manualTransactionId: {
+      type: String,
+    },
+
+    // NEW: Cloudinary Screenshot URL
+    paymentScreenshot: {
+      type: String,
+    },
+
     paymentStatus: {
       type: String,
       enum: ['pending', 'processing', 'completed', 'failed', 'refunded'],
       default: 'pending'
     },
+
     paidAt: Date,
+
     refundedAt: Date,
     refundAmount: {
       type: Number,
       default: 0
     }
   },
+
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'in-progress', 'completed', 'cancelled', 'refunded'],
@@ -234,25 +261,25 @@ orderSchema.index({ estimatedDelivery: 1 });
 orderSchema.index({ priority: 1, status: 1 });
 
 // Pre-save middleware to generate order number
-orderSchema.pre('save', async function(next) {
+orderSchema.pre('save', async function (next) {
   if (this.isNew && !this.orderNumber) {
     try {
       // Find the last order with SGD2025 prefix
       const lastOrder = await this.constructor.findOne({
         orderNumber: { $regex: '^SGD2025' }
       }).sort({ orderNumber: -1 }).lean();
-      
+
       let sequence = 1;
       if (lastOrder) {
         // Extract sequence number from orderNumber like SGD20250001
         const lastSequence = parseInt(lastOrder.orderNumber.replace('SGD2025', ''));
         sequence = lastSequence + 1;
       }
-      
+
       // Generate order number in format SGD2025XXXX
       this.orderNumber = `SGD2025${sequence.toString().padStart(4, '0')}`;
       console.log('Generated orderNumber:', this.orderNumber);
-      
+
       // Validate that orderNumber was generated
       if (!this.orderNumber) {
         const error = new Error('Failed to generate orderNumber');
@@ -268,7 +295,7 @@ orderSchema.pre('save', async function(next) {
 });
 
 // Method to calculate estimated delivery date
-orderSchema.methods.calculateEstimatedDelivery = function() {
+orderSchema.methods.calculateEstimatedDelivery = function () {
   const maxDeliveryTime = Math.max(...this.items.map(item => {
     // Get delivery time based on package type
     const product = item.product;
@@ -277,16 +304,16 @@ orderSchema.methods.calculateEstimatedDelivery = function() {
     }
     return 7; // default 7 days
   }));
-  
+
   const estimatedDate = new Date();
   estimatedDate.setDate(estimatedDate.getDate() + maxDeliveryTime);
   this.estimatedDelivery = estimatedDate;
 };
 
 // Method to update order status
-orderSchema.methods.updateStatus = function(newStatus, note = '') {
+orderSchema.methods.updateStatus = function (newStatus, note = '') {
   this.status = newStatus;
-  
+
   if (note) {
     this.communication.push({
       type: 'message',
@@ -294,23 +321,23 @@ orderSchema.methods.updateStatus = function(newStatus, note = '') {
       sender: this.customer // This should be updated to actual user making the change
     });
   }
-  
+
   if (newStatus === 'completed') {
     this.actualDelivery = new Date();
   }
-  
+
   return this.save();
 };
 
 // Virtual for order age in days
-orderSchema.virtual('ageInDays').get(function() {
+orderSchema.virtual('ageInDays').get(function () {
   const now = new Date();
   const diffTime = Math.abs(now - this.createdAt);
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 });
 
 // Virtual for total items count
-orderSchema.virtual('totalItems').get(function() {
+orderSchema.virtual('totalItems').get(function () {
   return this.items.reduce((total, item) => total + item.quantity, 0);
 });
 
