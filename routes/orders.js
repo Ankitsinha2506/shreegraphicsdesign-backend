@@ -255,6 +255,79 @@ router.post("/", protect, async (req, res) => {
   }
 });
 
+// ================================
+// @desc    Delete one order (Admin only)
+// @route   DELETE /api/orders/:id
+// @access  Private/Admin
+// ================================
+router.delete('/:id', protect, authorize('admin'), async (req, res) => {
+  try {
+    let order;
+
+    // Try find by MongoDB ObjectId first
+    try {
+      order = await Order.findById(req.params.id);
+    } catch (err) {
+      // If invalid ObjectId → treat as orderNumber
+      order = await Order.findOne({ orderNumber: req.params.id });
+    }
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    await Order.deleteOne({ _id: order._id });
+
+    res.status(200).json({
+      success: true,
+      message: `Order ${order.orderNumber || order._id} deleted successfully`
+    });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while deleting order'
+    });
+  }
+});
+
+
+// ================================
+// @desc    Delete ALL orders (Admin only)
+// @route   DELETE /api/orders
+// @access  Private/Admin
+// ================================
+router.delete('/', protect, authorize('admin'), async (req, res) => {
+  try {
+    const { confirm } = req.query;
+
+    // Safety check to avoid accidental wipe
+    if (confirm !== 'true') {
+      return res.status(400).json({
+        success: false,
+        message: "Missing confirmation: Add ?confirm=true to delete ALL orders"
+      });
+    }
+
+    const deleted = await Order.deleteMany({});
+
+    res.status(200).json({
+      success: true,
+      message: `All orders deleted successfully (${deleted.deletedCount} orders removed)`
+    });
+  } catch (error) {
+    console.error('Delete all orders error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while deleting all orders'
+    });
+  }
+});
+
+
 
 // @desc    Update order status
 // @route   PUT /api/orders/:id/status
