@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Product = require('../models/Product');
 const { protect, authorize, optionalAuth } = require('../middleware/auth');
+const upload = require('../utils/multerCloudinary');
 
 const router = express.Router();
 
@@ -13,19 +14,19 @@ router.get('/', optionalAuth, async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 12;
     const skip = (page - 1) * limit;
-    
+
     const query = { isActive: true };
-    
+
     // Filter by category
     if (req.query.category) {
       query.category = req.query.category;
     }
-    
+
     // Filter by subcategory
     if (req.query.subcategory) {
       query.subcategory = req.query.subcategory;
     }
-    
+
     // Filter by price range
     if (req.query.minPrice || req.query.maxPrice) {
       query['price.base'] = {};
@@ -36,7 +37,7 @@ router.get('/', optionalAuth, async (req, res) => {
         query['price.base'].$lte = parseFloat(req.query.maxPrice);
       }
     }
-    
+
     // Search by name or description
     if (req.query.search) {
       query.$or = [
@@ -45,13 +46,13 @@ router.get('/', optionalAuth, async (req, res) => {
         { tags: { $in: [new RegExp(req.query.search, 'i')] } }
       ];
     }
-    
+
     // Filter by tags
     if (req.query.tags) {
       const tags = req.query.tags.split(',');
       query.tags = { $in: tags };
     }
-    
+
     // Sort options
     let sortOption = { createdAt: -1 }; // Default: newest first
     if (req.query.sort) {
@@ -73,16 +74,16 @@ router.get('/', optionalAuth, async (req, res) => {
           break;
       }
     }
-    
+
     const products = await Product.find(query)
       .sort(sortOption)
       .skip(skip)
       .limit(limit)
       .populate('createdBy', 'name email')
       .lean(); // Use lean for better performance
-    
+
     const total = await Product.countDocuments(query);
-    
+
     res.status(200).json({
       success: true,
       count: products.length,
@@ -90,7 +91,7 @@ router.get('/', optionalAuth, async (req, res) => {
       page,
       pages: Math.ceil(total / limit),
       products
-   });
+    });
   } catch (error) {
     console.error('Get products error:', error);
     res.status(500).json({
@@ -109,19 +110,19 @@ router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 50; // Higher limit for admin
     const skip = (page - 1) * limit;
-    
+
     const query = {}; // No isActive filter for admin
-    
+
     // Filter by category
     if (req.query.category) {
       query.category = req.query.category;
     }
-    
+
     // Filter by subcategory
     if (req.query.subcategory) {
       query.subcategory = req.query.subcategory;
     }
-    
+
     // Search by name or description
     if (req.query.search) {
       query.$or = [
@@ -130,7 +131,7 @@ router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
         { tags: { $in: [new RegExp(req.query.search, 'i')] } }
       ];
     }
-    
+
     // Sort options
     let sortOption = { createdAt: -1 }; // Default: newest first
     if (req.query.sort) {
@@ -154,15 +155,15 @@ router.get('/admin/all', protect, authorize('admin'), async (req, res) => {
           sortOption = { createdAt: -1 };
       }
     }
-    
+
     const products = await Product.find(query)
       .populate('createdBy', 'name email')
       .sort(sortOption)
       .skip(skip)
       .limit(limit);
-    
+
     const total = await Product.countDocuments(query);
-    
+
     res.status(200).json({
       success: true,
       products,
@@ -190,7 +191,7 @@ router.get('/admin/stats', protect, authorize('admin'), async (req, res) => {
     const totalProducts = await Product.countDocuments();
     const activeProducts = await Product.countDocuments({ isActive: true });
     const inactiveProducts = await Product.countDocuments({ isActive: false });
-    
+
     // Get products by category
     const productsByCategory = await Product.aggregate([
       {
@@ -204,7 +205,7 @@ router.get('/admin/stats', protect, authorize('admin'), async (req, res) => {
       },
       { $sort: { count: -1 } }
     ]);
-    
+
     // Calculate average price
     const priceStats = await Product.aggregate([
       { $match: { isActive: true } },
@@ -217,7 +218,7 @@ router.get('/admin/stats', protect, authorize('admin'), async (req, res) => {
         }
       }
     ]);
-    
+
     res.status(200).json({
       success: true,
       stats: {
@@ -250,7 +251,7 @@ router.patch('/admin/activate-all', protect, authorize('admin'), async (req, res
       { isActive: false },
       { $set: { isActive: true } }
     );
-    
+
     res.status(200).json({
       success: true,
       message: `Successfully activated ${result.modifiedCount} products`,
@@ -272,24 +273,24 @@ router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate('createdBy', 'name email role createdAt');
-    
+
     if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
-    
+
     // Check if product is active (unless user is admin or creator)
-    if (!product.isActive && 
-        (!req.user || 
-         (req.user.role !== 'admin' && req.user._id.toString() !== product.createdBy._id.toString()))) {
+    if (!product.isActive &&
+      (!req.user ||
+        (req.user.role !== 'admin' && req.user._id.toString() !== product.createdBy._id.toString()))) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
-    
+
     res.status(200).json({
       success: true,
       product
@@ -306,153 +307,94 @@ router.get('/:id', optionalAuth, async (req, res) => {
 // @desc    Create new product
 // @route   POST /api/products
 // @access  Private/Admin
-router.post('/', [
+router.post(
+  '/',
   protect,
   authorize('admin'),
-  body('name')
-    .trim()
-    .isLength({ min: 3, max: 100 })
-    .withMessage('Product name must be between 3 and 100 characters'),
-  body('description')
-    .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be between 10 and 1000 characters'),
-  body('category')
-    .isIn(['apparels', 'travels', 'leather', 'uniforms', 'design-services', 'embroidery', 'other'])
-    .withMessage('Invalid category'),
-  body('price.base')
-    .isFloat({ min: 1 })
-    .withMessage('Base price must be at least $1'),
-  body('price.premium')
-    .optional()
-    .isFloat({ min: 1 })
-    .withMessage('Premium price must be at least $1'),
-  body('price.enterprise')
-    .optional()
-    .isFloat({ min: 1 })
-    .withMessage('Enterprise price must be at least $1'),
-  body('subcategory')
-    .notEmpty()
-    .withMessage('Subcategory is required'),
-  body('deliveryTime.base')
-    .isInt({ min: 1 })
-    .withMessage('Base delivery time must be at least 1 day')
-], async (req, res) => {
-  try {
-    console.log('Product creation request body:', JSON.stringify(req.body, null, 2));
-    
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      console.log('Product creation validation errors:', errors.array());
-      return res.status(400).json({
+  upload.array('images', 10), // IMPORTANT
+  [
+    body('name').trim().isLength({ min: 3, max: 100 }),
+    body('description').trim().isLength({ min: 10, max: 1000 }),
+    body('category').isIn(['apparels', 'travels', 'leather', 'uniforms', 'design-services', 'embroidery', 'other']),
+    body('price.base').isFloat({ min: 1 }),
+    body('subcategory').notEmpty(),
+    body('deliveryTime.base').isInt({ min: 1 })
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ success: false, errors: errors.array() });
+      }
+
+      // Map images correctly for schema
+      const images = req.files.map((file, index) => ({
+        url: file.path,
+        alt: req.body.name,
+        isPrimary: index === 0
+      }));
+
+      const productData = {
+        ...req.body,
+        images,
+        createdBy: req.user._id
+      };
+
+      const product = await Product.create(productData);
+
+      res.status(201).json({
+        success: true,
+        message: "Product created successfully",
+        product
+      });
+
+    } catch (error) {
+      console.error("Create product error:", error);
+      res.status(500).json({
         success: false,
-        message: 'Validation failed',
-        errors: errors.array()
+        message: "Server error while creating product"
       });
     }
-    
-    const productData = {
-      ...req.body,
-      createdBy: req.user._id
-    };
-    
-    console.log('Product data before creation:', JSON.stringify(productData, null, 2));
-    
-    const product = await Product.create(productData);
-    
-    res.status(201).json({
-      success: true,
-      message: 'Product created successfully',
-      product
-    });
-  } catch (error) {
-    console.error('Create product error:', error);
-    if (error.name === 'ValidationError') {
-      console.log('Mongoose validation errors:', error.errors);
-      return res.status(400).json({
-        success: false,
-        message: 'Product validation failed',
-        errors: Object.values(error.errors).map(err => ({
-          field: err.path,
-          message: err.message
-        }))
-      });
-    }
-    res.status(500).json({
-      success: false,
-      message: 'Server error while creating product'
-    });
   }
-});
+);
 
 // @desc    Update product
 // @route   PUT /api/products/:id
-// @access  Private/Admin
-router.put('/:id', [
+router.put(
+  '/:id',
   protect,
   authorize('admin'),
-  body('name')
-    .optional()
-    .trim()
-    .isLength({ min: 3, max: 100 })
-    .withMessage('Product name must be between 3 and 100 characters'),
-  body('description')
-    .optional()
-    .trim()
-    .isLength({ min: 10, max: 1000 })
-    .withMessage('Description must be between 10 and 1000 characters'),
-  body('category')
-    .optional()
-    .isIn(['apparels', 'travels', 'leather', 'uniforms', 'design-services', 'embroidery', 'other'])
-    .withMessage('Invalid category')
-], async (req, res) => {
-  try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Validation failed',
-        errors: errors.array()
-      });
-    }
-    
-    const product = await Product.findById(req.params.id);
-    
-    if (!product) {
-      return res.status(404).json({
-        success: false,
-        message: 'Product not found'
-      });
-    }
-    
-    // Remove createdBy from update data to prevent overwriting
-    const updateData = { ...req.body };
-    delete updateData.createdBy;
-    
-    const updatedProduct = await Product.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      {
-        new: true,
-        runValidators: true
+  upload.array('images', 10),
+  async (req, res) => {
+    try {
+      const product = await Product.findById(req.params.id);
+
+      if (!product) {
+        return res.status(404).json({ success: false, message: 'Product not found' });
       }
-    ).populate('createdBy', 'name email role');
-    
-    res.status(200).json({
-      success: true,
-      message: 'Product updated successfully',
-      product: updatedProduct
-    });
-  } catch (error) {
-    console.error('Update product error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while updating product'
-    });
+
+      // Add new images if uploaded
+      if (req.files?.length > 0) {
+        const newImages = req.files.map((file) => ({
+          url: file.path,
+          alt: product.name,
+          isPrimary: false
+        }));
+        product.images.push(...newImages);
+      }
+
+      Object.assign(product, req.body);
+      await product.save();
+
+      res.json({ success: true, message: "Product updated", product });
+
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ success: false, message: "Server error while updating product" });
+    }
   }
-});
+);
+
 
 // @desc    Delete product
 // @route   DELETE /api/products/:id
@@ -460,18 +402,18 @@ router.put('/:id', [
 router.delete('/:id', protect, authorize('admin'), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    
+
     if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
-    
+
     // Soft delete - just deactivate the product
     product.isActive = false;
     await product.save();
-    
+
     res.status(200).json({
       success: true,
       message: 'Product deleted successfully'
@@ -499,7 +441,7 @@ router.get('/meta/categories', async (req, res) => {
       { $group: { _id: '$category', subcategories: { $addToSet: '$subcategory' } } },
       { $sort: { _id: 1 } }
     ]);
-    
+
     res.status(200).json({
       success: true,
       categories
@@ -519,17 +461,17 @@ router.get('/meta/categories', async (req, res) => {
 router.patch('/:id/toggle-status', protect, authorize('admin'), async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    
+
     if (!product) {
       return res.status(404).json({
         success: false,
         message: 'Product not found'
       });
     }
-    
+
     product.isActive = !product.isActive;
     await product.save();
-    
+
     res.status(200).json({
       success: true,
       message: `Product ${product.isActive ? 'activated' : 'deactivated'} successfully`,
