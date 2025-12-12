@@ -359,7 +359,6 @@ router.post(
 );
 
 // @desc    Update product
-// @route   PUT /api/products/:id
 router.put(
   '/:id',
   protect,
@@ -373,24 +372,53 @@ router.put(
         return res.status(404).json({ success: false, message: 'Product not found' });
       }
 
-      // Add new images if uploaded
-      if (req.files?.length > 0) {
-        const newImages = req.files.map((file) => ({
-          url: file.path,
-          alt: product.name,
+      // If new Cloudinary images uploaded
+      if (req.files && req.files.length > 0) {
+        const uploadedImages = req.files.map((file) => ({
+          url: file.path, // Cloudinary URL
+          alt: req.body.name || product.name,
           isPrimary: false
         }));
-        product.images.push(...newImages);
+        product.images.push(...uploadedImages);
       }
 
-      Object.assign(product, req.body);
+      // Handle imageUrl (if admin typed direct URL)
+      if (req.body.imageUrl) {
+        product.images.unshift({
+          url: req.body.imageUrl,
+          alt: req.body.name || product.name,
+          isPrimary: true
+        });
+      }
+
+      // Update other fields safely
+      product.name = req.body.name || product.name;
+      product.description = req.body.description || product.description;
+      product.category = req.body.category || product.category;
+      product.subcategory = req.body.subcategory || product.subcategory;
+
+      product.price.base = req.body['price.base'] || product.price.base;
+      product.price.premium = req.body['price.premium'] || product.price.premium;
+      product.price.enterprise = req.body['price.enterprise'] || product.price.enterprise;
+
+      product.deliveryTime.base = req.body['deliveryTime.base'] || product.deliveryTime.base;
+      product.deliveryTime.premium = req.body['deliveryTime.premium'] || product.deliveryTime.premium;
+      product.deliveryTime.enterprise = req.body['deliveryTime.enterprise'] || product.deliveryTime.enterprise;
+
       await product.save();
 
-      res.json({ success: true, message: "Product updated", product });
+      res.json({
+        success: true,
+        message: "Product updated successfully",
+        product
+      });
 
     } catch (error) {
-      console.error(error);
-      res.status(500).json({ success: false, message: "Server error while updating product" });
+      console.error("Update product error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Server error while updating product"
+      });
     }
   }
 );
