@@ -16,7 +16,7 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const cloudinary = require("cloudinary").v2;
+const cloudinary = require("../utils/cloudinaryConfig");
 
 const { protect, authorize } = require("../middleware/auth");
 const Order = require("../models/Order");
@@ -26,11 +26,11 @@ const router = express.Router();
 /* ---------------------------------------------------------
    1️⃣ Cloudinary Configuration
 --------------------------------------------------------- */
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD,
-  api_key: process.env.CLOUDINARY_KEY,
-  api_secret: process.env.CLOUDINARY_SECRET,
-});
+// cloudinary.config({
+//   cloud_name: process.env.CLOUDINARY_CLOUD,
+//   api_key: process.env.CLOUDINARY_KEY,
+//   api_secret: process.env.CLOUDINARY_SECRET,
+// });
 
 /* ---------------------------------------------------------
    2️⃣ Ensure Local Upload Folders Exist
@@ -43,21 +43,18 @@ const uploadDirs = [
 ];
 
 uploadDirs.forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
 /* ---------------------------------------------------------
-   3️⃣ Multer Config Generator
+   3️⃣ Multer Config Generator (Local Storage)
 --------------------------------------------------------- */
 const createMulterConfig = (destination, fileFilter) =>
   multer({
     storage: multer.diskStorage({
       destination: (req, file, cb) => cb(null, destination),
       filename: (req, file, cb) => {
-        const uniqueName =
-          Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const uniqueName = Date.now() + "-" + Math.round(Math.random() * 1e9);
         const ext = path.extname(file.originalname);
         cb(null, file.fieldname + "-" + uniqueName + ext);
       },
@@ -69,20 +66,16 @@ const createMulterConfig = (destination, fileFilter) =>
 /* ---------------------------------------------------------
    4️⃣ File Filters
 --------------------------------------------------------- */
-
-// Image-only filter
 const imageFilter = (req, file, cb) => {
   const types = /jpeg|jpg|png|gif|webp|svg/;
   const valid = types.test(file.mimetype);
   valid ? cb(null, true) : cb(new Error("Only image files are allowed"));
 };
 
-// Image + documents filter
 const orderFileFilter = (req, file, cb) => {
   const imgTypes = /jpeg|jpg|png|gif|webp|svg/;
   const docTypes = /pdf|doc|docx|txt|zip|rar/;
   const ext = path.extname(file.originalname).toLowerCase();
-
   if (imgTypes.test(ext) || docTypes.test(ext)) cb(null, true);
   else cb(new Error("Only image or document files allowed"));
 };
@@ -91,25 +84,39 @@ const orderFileFilter = (req, file, cb) => {
    5️⃣ Multer Upload Handlers
 --------------------------------------------------------- */
 const uploadAvatar = createMulterConfig("uploads/avatars", imageFilter);
-const uploadProduct = createMulterConfig("uploads/products", imageFilter);
+
+// ---------------------------------------------------------
+// 🔥🔥 PRODUCT STORAGE UPDATED (Cloudinary Storage)
+// BEFORE:
+// const uploadProduct = createMulterConfig("uploads/products", imageFilter);
+// AFTER:
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+
+const productStorage = new CloudinaryStorage({
+  cloudinary,
+  params: {
+    folder: "products",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+  },
+});
+
+const uploadProduct = multer({ storage: productStorage });
+// ---------------------------------------------------------
+
 const uploadOrderFiles = createMulterConfig("uploads/orders", orderFileFilter);
 const uploadTemp = multer({ dest: "uploads/temp" });
 
 /* ---------------------------------------------------------
    6️⃣ Avatar Upload (Local)
-   POST /api/uploads/avatar
 --------------------------------------------------------- */
 router.post("/avatar", protect, (req, res) => {
   const upload = uploadAvatar.single("avatar");
 
   upload(req, res, (err) => {
-    if (err)
-      return res.status(400).json({ success: false, message: err.message });
+    if (err) return res.status(400).json({ success: false, message: err.message });
 
     if (!req.file)
-      return res
-        .status(400)
-        .json({ success: false, message: "No file uploaded" });
+      return res.status(400).json({ success: false, message: "No file uploaded" });
 
     return res.json({
       success: true,
@@ -123,25 +130,27 @@ router.post("/avatar", protect, (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   7️⃣ Product Image Upload (Local)
-   POST /api/uploads/product
+   7️⃣ Product Image Upload (NOW CLOUDINARY)
 --------------------------------------------------------- */
 router.post("/product", protect, authorize("admin"), (req, res) => {
   const upload = uploadProduct.array("images", 5);
 
   upload(req, res, (err) => {
-    if (err)
-      return res.status(400).json({ success: false, message: err.message });
+    if (err) return res.status(400).json({ success: false, message: err.message });
 
     if (!req.files?.length)
-      return res
-        .status(400)
-        .json({ success: false, message: "No files uploaded" });
+      return res.status(400).json({ success: false, message: "No files uploaded" });
 
+    // ---------------------------------------------------------
+    // 🔥🔥 URL UPDATED (Cloudinary)
+    // BEFORE:
+    // url: `${req.protocol}://${req.get("host")}/uploads/products/${file.filename}`,
+    // AFTER:
     const files = req.files.map((file) => ({
       filename: file.filename,
-      url: `${req.protocol}://${req.get("host")}/uploads/products/${file.filename}`,
+      url: file.path, // Cloudinary secure URL
     }));
+    // ---------------------------------------------------------
 
     return res.json({
       success: true,
@@ -153,7 +162,6 @@ router.post("/product", protect, authorize("admin"), (req, res) => {
 
 /* ---------------------------------------------------------
    8️⃣ ORDER SCREENSHOT (Cloudinary)
-   POST /api/uploads/order-screenshot
 --------------------------------------------------------- */
 router.post(
   "/order-screenshot",
@@ -162,19 +170,14 @@ router.post(
   async (req, res) => {
     try {
       if (!req.file)
-        return res.status(400).json({
-          success: false,
-          message: "No screenshot uploaded",
-        });
+        return res.status(400).json({ success: false, message: "No screenshot uploaded" });
 
-      // Upload to Cloudinary
       const result = await cloudinary.uploader.upload(req.file.path, {
         folder: "orders/screenshots",
         resource_type: "image",
         transformation: [{ quality: "auto", fetch_format: "auto" }],
       });
 
-      // Remove temp file
       fs.unlinkSync(req.file.path);
 
       return res.json({
@@ -194,19 +197,15 @@ router.post(
 
 /* ---------------------------------------------------------
    9️⃣ ORDER DOCUMENTS (Local)
-   POST /api/uploads/order/:orderId
 --------------------------------------------------------- */
 router.post("/order/:orderId", protect, (req, res) => {
   const upload = uploadOrderFiles.array("files", 10);
 
   upload(req, res, (err) => {
-    if (err)
-      return res.status(400).json({ success: false, message: err.message });
+    if (err) return res.status(400).json({ success: false, message: err.message });
 
     if (!req.files?.length)
-      return res
-        .status(400)
-        .json({ success: false, message: "No files uploaded" });
+      return res.status(400).json({ success: false, message: "No files uploaded" });
 
     const files = req.files.map((file) => ({
       filename: file.filename,
@@ -225,7 +224,6 @@ router.post("/order/:orderId", protect, (req, res) => {
 
 /* ---------------------------------------------------------
    🔟 Delete File
-   DELETE /api/uploads/:type/:filename
 --------------------------------------------------------- */
 router.delete("/:type/:filename", protect, async (req, res) => {
   try {
@@ -249,7 +247,6 @@ router.delete("/:type/:filename", protect, async (req, res) => {
 
 /* ---------------------------------------------------------
    1️⃣1️⃣ Get File Info
-   GET /api/uploads/:type/:filename
 --------------------------------------------------------- */
 router.get("/:type/:filename", (req, res) => {
   const { type, filename } = req.params;
@@ -273,8 +270,7 @@ router.get("/:type/:filename", (req, res) => {
 });
 
 /* ---------------------------------------------------------
-   1️⃣2️⃣ UPLOAD STATISTICS (Admin Only)
-   GET /api/uploads/admin/stats
+   1️⃣2️⃣ Upload Stats
 --------------------------------------------------------- */
 router.get("/admin/stats", protect, authorize("admin"), (req, res) => {
   const stats = {};
@@ -287,9 +283,7 @@ router.get("/admin/stats", protect, authorize("admin"), (req, res) => {
     if (fs.existsSync(dir)) {
       const files = fs.readdirSync(dir);
       count = files.length;
-      files.forEach((f) => {
-        total += fs.statSync(path.join(dir, f)).size;
-      });
+      files.forEach((f) => (total += fs.statSync(path.join(dir, f)).size));
     }
 
     stats[type] = {
@@ -298,10 +292,7 @@ router.get("/admin/stats", protect, authorize("admin"), (req, res) => {
     };
   });
 
-  return res.json({
-    success: true,
-    stats,
-  });
+  return res.json({ success: true, stats });
 });
 
 module.exports = router;
