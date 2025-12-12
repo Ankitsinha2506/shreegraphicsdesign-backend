@@ -148,7 +148,7 @@ router.post("/product", protect, authorize("admin"), (req, res) => {
     // AFTER:
     const files = req.files.map((file) => ({
       filename: file.filename,
-      url: file.path, // Cloudinary secure URL
+      url: file.secure_url || file.path
     }));
     // ---------------------------------------------------------
 
