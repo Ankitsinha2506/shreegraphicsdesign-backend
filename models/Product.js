@@ -18,7 +18,7 @@ const productSchema = new mongoose.Schema({
     enum: {
       values: [
         'apparels',
-        'travels', 
+        'travels',
         'leather',
         'uniforms',
         'design-services',
@@ -34,24 +34,54 @@ const productSchema = new mongoose.Schema({
     enum: {
       values: [
         // Apparels
-        'cap', 'jackets', 'Shirt', 'denim-shirt', 'windcheaters',
+        'cap',
+        'jackets',
+        'shirt',          // ✅ FIXED (was "Shirt")
+        'denim-shirt',
+        'windcheaters',
+
         // Travels
-        'hand-bag', 'strolley-bags', 'travel-bags', 'back-packs', 'laptop-bags',
+        'hand-bag',
+        'strolley-bags',
+        'travel-bags',
+        'back-packs',
+        'laptop-bags',
+
         // Leather
-        'office-bags', 'wallets',
+        'office-bags',
+        'wallets',
+
         // Uniforms
-        'school-uniforms', 'corporate',
+        'school-uniforms',
+        'corporate',
+
         // Design Services
-        'logo-design', 'business-card', 'brochure', 'banner', 'poster', 'flyer', 'website-design',
+        'logo-design',
+        'business-card',
+        'brochure',
+        'banner',
+        'poster',
+        'flyer',
+        'website-design',
+
         // Embroidery
-        'logo-embroidery', 'text-embroidery', 'custom-patches', 'monogramming', 'badge-embroidery', 'custom-embroidery', 'hand-embroidery',
+        'logo-embroidery',
+        'text-embroidery',
+        'custom-patches',
+        'monogramming',
+        'badge-embroidery',
+        'custom-embroidery',
+        'hand-embroidery',
+
         // Other
         'other'
       ],
       message: 'Please select a valid subcategory'
     },
+    lowercase: true,   // ✅ EXTRA SAFETY
     trim: true
   },
+
   price: {
     base: {
       type: Number,
@@ -215,7 +245,7 @@ productSchema.index({
 });
 
 // Virtual for primary image
-productSchema.virtual('primaryImage').get(function() {
+productSchema.virtual('primaryImage').get(function () {
   if (!this.images || !Array.isArray(this.images) || this.images.length === 0) {
     return null;
   }

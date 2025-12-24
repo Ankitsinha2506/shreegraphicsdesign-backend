@@ -366,62 +366,158 @@ router.put(
   upload.array('images', 10),
   async (req, res) => {
     try {
+      /* ===============================
+         1️⃣ FIND PRODUCT
+      =============================== */
       const product = await Product.findById(req.params.id);
 
       if (!product) {
-        return res.status(404).json({ success: false, message: 'Product not found' });
+        return res.status(404).json({
+          success: false,
+          message: 'Product not found'
+        });
       }
 
-      // If new Cloudinary images uploaded
+      /* ===============================
+         2️⃣ SUBCATEGORY NORMALIZATION + VALIDATION
+         (🔥 THIS FIXES YOUR ISSUE)
+      =============================== */
+      if (req.body.subcategory) {
+        const normalizedSubcategory = req.body.subcategory
+          .toLowerCase()
+          .trim();
+
+        const allowedSubcategories = [
+          'cap',
+          'jackets',
+          'shirt',
+          'denim-shirt',
+          'hand-bag',
+          'strolley-bags',
+          'travel-bags',
+          'back-packs',
+          'laptop-bags',
+          'office-bags',
+          'wallets',
+          'school-uniforms',
+          'corporate',
+          'logo-design',
+          'business-card',
+          'brochure',
+          'banner',
+          'poster',
+          'flyer',
+          'website-design',
+          'logo-embroidery',
+          'text-embroidery',
+          'custom-patches',
+          'monogramming',
+          'badge-embroidery',
+          'custom-embroidery',
+          'hand-embroidery',
+          'other'
+        ];
+
+        if (!allowedSubcategories.includes(normalizedSubcategory)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid subcategory'
+          });
+        }
+
+        product.subcategory = normalizedSubcategory;
+      }
+
+      /* ===============================
+         3️⃣ UPDATE SIMPLE FIELDS (SAFE)
+      =============================== */
+      if (req.body.name) product.name = req.body.name;
+      if (req.body.description) product.description = req.body.description;
+      if (req.body.category) product.category = req.body.category;
+
+      /* ===============================
+         4️⃣ UPDATE PRICE (SAFE + TYPE FIX)
+      =============================== */
+      if (req.body.price) {
+        if (req.body.price.base !== undefined) {
+          product.price.base = Number(req.body.price.base);
+        }
+        if (req.body.price.premium !== undefined) {
+          product.price.premium = Number(req.body.price.premium);
+        }
+        if (req.body.price.enterprise !== undefined) {
+          product.price.enterprise = Number(req.body.price.enterprise);
+        }
+      }
+
+      /* ===============================
+         5️⃣ UPDATE DELIVERY TIME
+      =============================== */
+      if (req.body.deliveryTime) {
+        if (req.body.deliveryTime.base !== undefined) {
+          product.deliveryTime.base = Number(req.body.deliveryTime.base);
+        }
+        if (req.body.deliveryTime.premium !== undefined) {
+          product.deliveryTime.premium = Number(req.body.deliveryTime.premium);
+        }
+        if (req.body.deliveryTime.enterprise !== undefined) {
+          product.deliveryTime.enterprise = Number(req.body.deliveryTime.enterprise);
+        }
+      }
+
+      /* ===============================
+         6️⃣ IMAGE HANDLING (REPLACE IMAGES)
+      =============================== */
       if (req.files && req.files.length > 0) {
-        const uploadedImages = req.files.map((file) => ({
-          url: file.path, // Cloudinary URL
-          alt: req.body.name || product.name,
-          isPrimary: false
+        product.images = req.files.map((file, index) => ({
+          url: file.path,
+          alt: product.name,
+          isPrimary: index === 0
         }));
-        product.images.push(...uploadedImages);
       }
 
-      // Handle imageUrl (if admin typed direct URL)
+      /* ===============================
+         7️⃣ IMAGE URL SUPPORT
+      =============================== */
       if (req.body.imageUrl) {
         product.images.unshift({
           url: req.body.imageUrl,
-          alt: req.body.name || product.name,
+          alt: product.name,
           isPrimary: true
         });
       }
 
-      // Update other fields safely
-      product.name = req.body.name || product.name;
-      product.description = req.body.description || product.description;
-      product.category = req.body.category || product.category;
-      product.subcategory = req.body.subcategory || product.subcategory;
+      /* ===============================
+         8️⃣ ENSURE SINGLE PRIMARY IMAGE
+      =============================== */
+      if (product.images && product.images.length > 0) {
+        product.images = product.images.map((img, index) => ({
+          ...img,
+          isPrimary: index === 0
+        }));
+      }
 
-      product.price.base = req.body['price.base'] || product.price.base;
-      product.price.premium = req.body['price.premium'] || product.price.premium;
-      product.price.enterprise = req.body['price.enterprise'] || product.price.enterprise;
-
-      product.deliveryTime.base = req.body['deliveryTime.base'] || product.deliveryTime.base;
-      product.deliveryTime.premium = req.body['deliveryTime.premium'] || product.deliveryTime.premium;
-      product.deliveryTime.enterprise = req.body['deliveryTime.enterprise'] || product.deliveryTime.enterprise;
-
+      /* ===============================
+         9️⃣ SAVE PRODUCT
+      =============================== */
       await product.save();
 
       res.json({
         success: true,
-        message: "Product updated successfully",
+        message: 'Product updated successfully',
         product
       });
 
     } catch (error) {
-      console.error("Update product error:", error);
+      console.error('🔥 Update product error:', error);
       res.status(500).json({
         success: false,
-        message: "Server error while updating product"
+        message: error.message || 'Server error while updating product'
       });
     }
   }
 );
+
 
 
 // @desc    Delete product
