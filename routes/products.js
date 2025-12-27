@@ -324,9 +324,9 @@ router.post(
       'embroidery',
       'other'
     ]),
+    body('price.base').isFloat({ min: 1 }),
     body('subcategory').notEmpty(),
-    body('priceBase').isFloat({ min: 1 }),
-    body('deliveryBase').isInt({ min: 1 })
+    body('deliveryTime.base').isInt({ min: 1 })
   ],
   async (req, res) => {
     try {
@@ -338,32 +338,22 @@ router.post(
         });
       }
 
+      // 🔥 FIX 1: NORMALIZE SUBCATEGORY (CRITICAL)
+      req.body.subcategory = String(req.body.subcategory)
+        .trim()
+        .toLowerCase();
+
+      // 🔥 FIX 2: SAFE IMAGE MAPPING
       const images = Array.isArray(req.files)
         ? req.files.map((file, index) => ({
-          url: file.path,
-          alt: req.body.name,
-          isPrimary: index === 0
-        }))
+            url: file.path,
+            alt: req.body.name,
+            isPrimary: index === 0
+          }))
         : [];
 
       const productData = {
-        name: req.body.name,
-        description: req.body.description,
-        category: req.body.category,
-        subcategory: String(req.body.subcategory).trim().toLowerCase(),
-
-        price: {
-          base: Number(req.body.priceBase),
-          premium: Number(req.body.pricePremium || 0),
-          enterprise: Number(req.body.priceEnterprise || 0)
-        },
-
-        deliveryTime: {
-          base: Number(req.body.deliveryBase),
-          premium: Number(req.body.deliveryPremium || 0),
-          enterprise: Number(req.body.deliveryEnterprise || 0)
-        },
-
+        ...req.body,
         images,
         createdBy: req.user._id
       };
@@ -378,14 +368,15 @@ router.post(
 
     } catch (error) {
       console.error("Create product error:", error);
+
       return res.status(400).json({
         success: false,
-        message: error.message
+        message: error.message,
+        error: error.errors || error
       });
     }
   }
 );
-
 
 // @desc    Update product
 router.put(
