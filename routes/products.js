@@ -311,11 +311,19 @@ router.post(
   '/',
   protect,
   authorize('admin'),
-  upload.array('images', 10), // IMPORTANT
+  upload.array('images', 10),
   [
     body('name').trim().isLength({ min: 3, max: 100 }),
     body('description').trim().isLength({ min: 10, max: 1000 }),
-    body('category').isIn(['apparels', 'travels', 'leather', 'uniforms', 'design-services', 'embroidery', 'other']),
+    body('category').isIn([
+      'apparels',
+      'travels',
+      'leather',
+      'uniforms',
+      'design-services',
+      'embroidery',
+      'other'
+    ]),
     body('price.base').isFloat({ min: 1 }),
     body('subcategory').notEmpty(),
     body('deliveryTime.base').isInt({ min: 1 })
@@ -324,15 +332,25 @@ router.post(
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
+        return res.status(400).json({
+          success: false,
+          errors: errors.array()
+        });
       }
 
-      // Map images correctly for schema
-      const images = req.files.map((file, index) => ({
-        url: file.path,
-        alt: req.body.name,
-        isPrimary: index === 0
-      }));
+      // 🔥 FIX 1: NORMALIZE SUBCATEGORY (CRITICAL)
+      req.body.subcategory = String(req.body.subcategory)
+        .trim()
+        .toLowerCase();
+
+      // 🔥 FIX 2: SAFE IMAGE MAPPING
+      const images = Array.isArray(req.files)
+        ? req.files.map((file, index) => ({
+            url: file.path,
+            alt: req.body.name,
+            isPrimary: index === 0
+          }))
+        : [];
 
       const productData = {
         ...req.body,
@@ -342,7 +360,7 @@ router.post(
 
       const product = await Product.create(productData);
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: "Product created successfully",
         product
@@ -350,9 +368,11 @@ router.post(
 
     } catch (error) {
       console.error("Create product error:", error);
-      res.status(500).json({
+
+      return res.status(400).json({
         success: false,
-        message: "Server error while creating product"
+        message: error.message,
+        error: error.errors || error
       });
     }
   }

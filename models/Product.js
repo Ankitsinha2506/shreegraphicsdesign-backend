@@ -78,7 +78,7 @@ const productSchema = new mongoose.Schema({
       ],
       message: 'Please select a valid subcategory'
     },
-    lowercase: true,   // ✅ EXTRA SAFETY
+    set: v => v.toLowerCase(),   // ✅ EXTRA SAFETY
     trim: true
   },
 
