@@ -85,6 +85,15 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// ✅ 8️⃣ Health check
+app.get("/", (req, res) => {
+  res.json({
+    status: "OK",
+    message: "Shree Graphics Design API is running",
+    time: new Date().toISOString(),
+  });
+});
+
 // ✅ 9️⃣ Global error handler
 app.use((err, req, res, next) => {
   console.error("❌ Error:", err);
