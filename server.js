@@ -110,3 +110,11 @@ app.use("*", (req, res) => {
 
 /* ✅ 11️⃣ EXPORT APP (NO listen) */
 module.exports = app;
+
+const PORT = process.env.PORT || 5003;
+
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+  });
+}
